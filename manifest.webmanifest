@@ -1,0 +1,18 @@
+{
+  "name": "Mis Estudios",
+  "short_name": "Estudios",
+  "lang": "es-AR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#171320",
+  "theme_color": "#7650d9",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
