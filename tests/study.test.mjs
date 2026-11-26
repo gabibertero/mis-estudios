@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {parseStudyPlan,validatePlacement,makePrompt,validateBackup} from '../study-import.mjs';
+import {calendarDays,eventsOn,navigateCalendar,renderCalendar} from '../calendar.mjs';
+import {subjectIcon} from '../subject-icons.mjs';
+
+const now=new Date('2027-02-01T07:00:00');
+const state=()=>({version:1,subjects:[],exams:[],topics:[],sessions:[],results:[],availability:[],busy:[],settings:{block:50,break:10,daily:120},theme:'auto'});
+const id=()=>{let n=0;return()=>`row-${++n}`};
+const sample=()=>({version:1,disponibilidad:[{dia:'lunes',desde:'09:00',hasta:'12:00'}],compromisos:[{nombre:'Clase',dia:'lunes',desde:'11:00',hasta:'12:00',tipo:'clase',materia:'Física II'}],evaluaciones:[{materia:'Física II',tipo:'Parcial',fecha:'2027-02-08',hora:'18:00',temas:[{nombre:'Ondas',minutos:100,sesiones:[{fecha:'2027-02-01',desde:'09:00',hasta:'09:50'}]}]}]});
+const parse=(x,s=state())=>parseStudyPlan(JSON.stringify(x),s,id(),now);
+test('additive import creates and locks a plan, leaving original unchanged',()=>{
+ const initial=state(),p=parse(sample(),initial);assert.equal(initial.subjects.length,0);assert.equal(p.counts.materias,1);assert.equal(p.counts.sesiones,1);assert.equal(p.draft.sessions.filter(s=>s.locked).length,1);assert.equal(p.draft.sessions.reduce((n,s)=>n+s.minutes,0),100);assert.equal(eventsOn(p.draft,'2027-02-01').filter(e=>e.kind==='clase').length,1);
+});
+test('repeat plan is idempotent and does not overwrite existing data',()=>{const p=parse(sample());const p2=parse(sample(),p.draft);assert.equal(Object.values(p2.counts).reduce((a,b)=>a+b,0),0);assert.deepEqual(p2.draft,p.draft);});
+test('single invalid entry rejects the whole plan: no writes',()=>{const s=state(),x=sample();x.evaluaciones[0].temas[0].sesiones[0].desde='10:50';x.evaluaciones[0].temas[0].sesiones[0].hasta='11:40';assert.throws(()=>parse(x,s),/compromiso/);assert.deepEqual(s,state());});
+test('reject invalid date, unknown fields and invalid JSON',()=>{let x=sample();x.evaluaciones[0].fecha='2027-02-30';assert.throws(()=>parse(x),/Fecha inválida/);x=sample();x.evaluaciones[0].temas[0].unexpected=true;assert.throws(()=>parse(x),/campos inválidos/);assert.throws(()=>parseStudyPlan('oops',state(),id(),now),/JSON inválido/);});
+test('move respects constraints, fixed sessions, and daily limits',()=>{const {draft}=parse(sample());let s=draft.sessions.find(s=>s.locked);assert.throws(()=>validatePlacement(draft,{...s,start:'11:00',end:'11:50'},now),/compromiso/);assert.throws(()=>validatePlacement(draft,{...s,date:'2027-02-09'},now),/antes/);const moved=validatePlacement(draft,{...s,start:'09:10',end:'10:00'},now);assert.equal(moved.locked,true);assert.equal(moved.minutes,50);});
+test('new commitments cannot conflict with preserved locked sessions',()=>{const p=parse(sample());assert.throws(()=>parse({version:1,compromisos:[{nombre:'Otro',dia:'lunes',desde:'09:00',hasta:'10:00'}]},p.draft),/conflicto/);});
+test('calendar aligns Monday and navigates across year boundaries',()=>{const v={mode:'month',date:'2027-01-20',group:'day',open:new Set()};let ds=calendarDays(v);assert.equal(ds[0],'2026-12-28');assert.equal(ds.at(-1),'2027-01-31');navigateCalendar(v,-1);assert.equal(v.date,'2026-12-01');v.mode='week';assert.equal(calendarDays(v)[0],'2026-11-30');});
+test('calendar encodes names and icons use controlled SVG',()=>{const {draft}=parse(sample());draft.subjects[0].name='Física <em>II</em>';const html=renderCalendar(draft,{mode:'week',date:'2027-02-01',group:'day',open:new Set()});assert.ok(html.includes('Física &lt;em&gt;II&lt;/em&gt;'));assert.ok(!html.includes('<em>II</em>'));assert.notEqual(subjectIcon({corrId:'1'}),subjectIcon({corrId:'2'}));assert.ok(makePrompt(draft).includes('Formato'));});
+test('backup validates historical data shape and rejects invalid numeric fields',()=>{const {draft}=parse(sample());assert.ok(validateBackup(draft));draft.exams[0].minimum='incompatible';assert.equal(validateBackup(draft),false);});

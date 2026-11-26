@@ -33,3 +33,29 @@ La clave pública anon del proyecto está en el cliente, igual que en Correlativ
 ## Verificaciones del motor
 
 Se comprobó sintaxis de la aplicación, límites de nota, límite diario, exclusión de un compromiso y aviso por capacidad insuficiente mediante una ejecución aislada del motor. Las pruebas de navegador y Supabase están pendientes.
+
+## Planificación con ChatGPT
+
+En Planificador, abrí **Crear o importar plan**. Copiá el prompt (podés editarlo antes de compartirlo), abrí ChatGPT y pegá la respuesta JSON en la aplicación. Elegí **Revisar plan** y después **Aplicar cambios**. Se agregan elementos nuevos: los ya existentes se conservan y se indican en la vista previa si la propuesta difiere. No hace falta una API ni una clave de ChatGPT.
+
+El formato admite disponibilidad semanal, compromisos (clases o generales), evaluaciones y sus temas, con sesiones opcionales. Las fechas usan `AAAA-MM-DD`, los días se escriben en español y los intervalos usan `HH:MM`, en múltiplos de cinco minutos. Ejemplo que solo agrega disponibilidad:
+
+```json
+{
+  "version": 1,
+  "disponibilidad": [
+    {"dia": "lunes", "desde": "09:00", "hasta": "12:00"},
+    {"dia": "miércoles", "desde": "14:00", "hasta": "18:00"}
+  ]
+}
+```
+
+Las sesiones propuestas se fijan tras comprobar disponibilidad, evaluaciones, compromisos, descansos y límite diario. Si no se incluyen, el motor distribuye las sesiones automáticamente. En el calendario se puede cambiar de semana, mes o agenda, filtrar y agrupar por día o materia, y reprogramar, fijar o completar sesiones.
+
+La sincronización con Supabase sigue usando el esquema y la revisión originales. La importación de planes es independiente del respaldo completo de Configuración.
+
+Pruebas de regresión: `node --test tests/study.test.mjs`. Para una prueba manual, usar un perfil de navegador local y un plan de ejemplo, sin modificar el espacio de una cuenta real.
+
+## Mejora pendiente
+
+- Excepciones de cursado por fecha: marcar una clase semanal como cancelada por paro, feriado o ausencia personal y liberar únicamente esa franja para planificar estudio, conservando intacto el horario habitual de las demás semanas.
