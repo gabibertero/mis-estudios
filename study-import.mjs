@@ -30,7 +30,38 @@ export function validatePlacement(state,s,now=new Date()){
 
 export function makePrompt(state){
  const context={materias:state.subjects.map(s=>({nombre:s.name,codigo:s.corrId??null})),evaluaciones:state.exams.filter(e=>!e.closed).map(e=>({materia:state.subjects.find(s=>s.id===e.subject)?.name,tipo:e.kind,fecha:e.date,hora:e.time,duracion:e.duration,minimo:e.minimum,temas:state.topics.filter(t=>t.exam===e.id).map(t=>({nombre:t.name,minutos:t.estimate,dificultad:t.difficulty}))})),disponibilidad:state.availability.map(a=>({dia:days[a.day],desde:a.start,hasta:a.end})),compromisos:state.busy.map(b=>({nombre:b.name,...(b.date?{fecha:b.date}:{dia:days[b.day]}),desde:b.start,hasta:b.end})),sesionesFijadas:state.sessions.filter(s=>s.locked||s.done).map(s=>({materia:state.subjects.find(sub=>sub.id===state.exams.find(e=>e.id===s.exam)?.subject)?.name,tema:state.topics.find(t=>t.id===s.topic)?.name,fecha:s.date,desde:s.start,hasta:s.end,completada:s.done})),limites:state.settings};
- return `Ayudame a organizar mi estudio académico. Antes de planificar, preguntame por horarios faltantes, evaluaciones, temario y objetivos; no inventes datos. Devolveme solo JSON válido (sin comentarios) siguiendo este formato, con listas vacías cuando no necesite agregar nada. Usá fechas futuras AAAA-MM-DD, horas HH:MM de Córdoba, intervalos de 5 minutos, días en español. Las sesiones son opcionales: si se omiten, la app calcula el plan. Si las incluís, respetá disponibilidad, compromisos, descansos, fechas de examen y límites. No incluyas datos personales.\n\nFormato (ejemplo, reemplazar valores):\n${JSON.stringify({version:1,disponibilidad:[{dia:'lunes',desde:'09:00',hasta:'12:00'}],compromisos:[{nombre:'Clase de ejemplo',dia:'martes',desde:'18:00',hasta:'22:00',tipo:'clase',materia:'Nombre exacto'}],evaluaciones:[{materia:'Nombre exacto',tipo:'Parcial',fecha:'AAAA-MM-DD',hora:'18:00',duracion:120,minimo:55,temas:[{nombre:'Tema 1',minutos:60,dificultad:3,sesiones:[{fecha:'AAAA-MM-DD',desde:'09:00',hasta:'09:30',fase:'Aprender'}]}]}]},null,2)}\n\nContexto actual (conservar lo existente, agregar solo lo necesario):\n${JSON.stringify(context,null,2)}`;
+ return `Sos mi asistente de planificación académica para Mis Estudios. Quiero un plan simple, realista y fácil de importar, sin sentirme abrumado.
+
+CÓMO TRABAJAR CONMIGO
+- Si ya hablamos de mi estudio en este chat, o tenés contexto relevante de conversaciones anteriores, usalo. Respetá lo que ya decidimos: materias, fechas, objetivo, temario y alcance (por ejemplo, solo teoría). No me hagas repetir datos conocidos.
+- Si te pido reutilizar un plan de otro chat y no podés acceder a él, pedime un resumen breve. No afirmes que lo consultaste.
+- Preguntá solo por datos indispensables que falten, como qué evaluación quiero planificar, cuándo es y qué debo estudiar. Si faltan, hacé como máximo 3 preguntas cortas en texto normal, en un solo mensaje, y esperá mi respuesta. No devuelvas un JSON con preguntas.
+- Si solo quiero importar evaluaciones y temas, no me exijas horarios: dejá la disponibilidad vacía si no la conocés. Si quiero un cronograma con horas y no tenés esa información, pedime únicamente mis franjas disponibles y compromisos relevantes.
+- Si ya tenés información suficiente, entregá directamente el JSON. No inventes fechas, horarios, requisitos ni compromisos.
+
+CÓMO ARMAR EL PLAN
+- Agrupá los contenidos en 3 a 6 bloques claros por evaluación, cuando sea razonable. Un bloque puede reunir varios temas relacionados: conservá la cobertura del programa sin convertir cada concepto en una tarea.
+- Usá nombres breves, tiempos estimados en minutos (múltiplos de 5) y dificultad del 1 al 5. Si desconozco los tiempos, estimá una carga manejable según lo que debo estudiar; no inventes datos oficiales. Conservá las estimaciones ya acordadas.
+- Priorizá evaluaciones cercanas y temas importantes. No agregues ejercicios prácticos, métodos de estudio o contenidos que haya excluido.
+- Si solo te pido planificación general, omití las sesiones: Mis Estudios las distribuye automáticamente. Incluí sesiones concretas solo si te las pido y conocés mis horarios, respetando disponibilidad, compromisos, descansos, límites y fecha de examen.
+- No dupliques elementos ya existentes. Para agregar temas a una evaluación existente, usá exactamente su materia, tipo, fecha y hora.
+
+FORMATO OBLIGATORIO DE IMPORTACIÓN
+Cuando el plan esté listo, devolvé únicamente un objeto JSON válido, sin Markdown, comentarios, texto introductorio, preguntas ni despedidas. Usá las claves del formato, con version: 1. No agregues otras claves ni valores null; omití los campos opcionales desconocidos. Las listas sin elementos pueden quedar [].
+
+Reglas de cada campo:
+- evaluaciones.tipo: exactamente "Parcial", "Recuperatorio", "Final" o "Promoción". Nunca "Final oral", "Tercer parcial", "Recuperatorio del tercer parcial" ni otras variantes: normalizalas al tipo permitido.
+- Materia: nombre exacto que figure en el contexto si ya existe. Fecha futura AAAA-MM-DD y hora HH:MM en horario de Córdoba. Duración opcional: minutos numéricos de 5 a 360. Mínimo opcional: número entero entre 55 y 100 (Final desde 60). Si no conocemos duración o mínimo, omitilos para que la app use su valor predeterminado.
+- Temas: nombre, minutos (entero de 5 a 3000), dificultad opcional (entero de 1 a 5); nunca null. Sesiones opcionales: fecha, desde, hasta y fase, exactamente "Aprender", "Practicar", "Dominar" o "Repasar".
+- Disponibilidad: dia en español (lunes a domingo), desde y hasta. Compromisos: nombre, dia O fecha (uno solo), desde, hasta, tipo opcional "clase" o "compromiso", materia opcional. Horas HH:MM en intervalos de 5 minutos.
+- Antes de responder, comprobá que todos los tipos sean válidos, que las fechas y horas tengan el formato correcto, y que todos los minutos y dificultades sean números. No incluyas datos personales.
+
+Formato de ejemplo (solo estructura; no copies los datos ilustrativos):
+${JSON.stringify({version:1,disponibilidad:[{dia:'lunes',desde:'09:00',hasta:'12:00'}],compromisos:[{nombre:'Clase de ejemplo',dia:'martes',desde:'18:00',hasta:'20:00',tipo:'clase',materia:'Materia de ejemplo'}],evaluaciones:[{materia:'Materia de ejemplo',tipo:'Final',fecha:'AAAA-MM-DD',hora:'18:00',duracion:120,minimo:60,temas:[{nombre:'Bloque de contenidos relacionados',minutos:60,dificultad:3}]}]},null,2)}
+
+Fecha actual: ${dayKey(new Date())}.
+Contexto actual de Mis Estudios (conservá lo existente y agregá solo lo necesario):
+${JSON.stringify(context,null,2)}`;
 }
 
 export function parseStudyPlan(raw,state,newId,now=new Date()){

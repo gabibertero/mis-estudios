@@ -38,6 +38,8 @@ Se comprobó sintaxis de la aplicación, límites de nota, límite diario, exclu
 
 En Planificador, abrí **Crear o importar plan**. Copiá el prompt (podés editarlo antes de compartirlo), abrí ChatGPT y pegá la respuesta JSON en la aplicación. Elegí **Revisar plan** y después **Aplicar cambios**. Se agregan elementos nuevos: los ya existentes se conservan y se indican en la vista previa si la propuesta difiere. No hace falta una API ni una clave de ChatGPT.
 
+Si ya preparaste una materia en otro chat, pegá el prompt allí para reutilizar las decisiones de estudio. El prompt pide agrupar los contenidos, hacer como máximo tres preguntas indispensables y devolver únicamente el JSON compatible cuando tenga información suficiente. Si preferís configurar todo a mano, seguí la guía de tres pasos del Planificador: horarios disponibles, evaluaciones y temas, calendario.
+
 El formato admite disponibilidad semanal, compromisos (clases o generales), evaluaciones y sus temas, con sesiones opcionales. Las fechas usan `AAAA-MM-DD`, los días se escriben en español y los intervalos usan `HH:MM`, en múltiplos de cinco minutos. Ejemplo que solo agrega disponibilidad:
 
 ```json
