@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {parseStudyPlan,validatePlacement,makePrompt,validateBackup} from '../study-import.mjs';
 import {calendarDays,eventsOn,navigateCalendar,renderCalendar} from '../calendar.mjs';
 import {subjectIcon,subjectTone} from '../subject-icons.mjs';
+import {civilNow,withinAvailability,scheduleBands} from '../schedule-time.mjs';
+import {generate} from '../planner.mjs';
+import {gridEvents} from '../calendar-timegrid.mjs';
 
 const now=new Date('2027-02-01T07:00:00');
 const state=()=>({version:1,subjects:[],exams:[],topics:[],sessions:[],results:[],availability:[],busy:[],settings:{block:50,break:10,daily:120},theme:'auto'});
@@ -22,3 +25,6 @@ test('calendar encodes names and icons use controlled SVG',()=>{const {draft}=pa
 test('backup validates historical data shape and rejects invalid numeric fields',()=>{const {draft}=parse(sample());assert.ok(validateBackup(draft));draft.exams[0].minimum='incompatible';assert.equal(validateBackup(draft),false);});
 test('subject colors are stable across names and canonical IDs',()=>{assert.equal(subjectTone({name:'Comunicación de Datos'}),'violet');assert.equal(subjectTone({corrId:'21'}),'violet');assert.equal(subjectTone({name:'Comunicaciones'}),'violet');assert.equal(subjectTone({name:'Economía'}),'yellow');assert.equal(subjectTone({corrId:'18'}),'yellow');assert.equal(subjectTone({name:'Proyecto de Inversión'}),'yellow');assert.notEqual(subjectTone({name:'Física II'}),'violet');assert.equal(subjectTone({name:'Materia nueva'}),subjectTone({name:'MATERIA NUEVA'}));});
 test('equivalence exam is accepted by planned import and backup',()=>{const x=sample();x.evaluaciones[0].materia='Economía';x.evaluaciones[0].tipo='Complementario por equivalencia';const p=parse(x);assert.equal(p.draft.exams[0].kind,'Complementario por equivalencia');assert.equal(p.draft.exams[0].minimum,60);assert.ok(validateBackup(p.draft));assert.match(renderCalendar(p.draft,{mode:'week',date:'2027-02-01',group:'day',open:new Set()}),/data-subject-tone="yellow"/);});
+test('civil time uses Córdoba and adjacent availability can be combined',()=>{assert.deepEqual(civilNow(new Date('2027-02-01T02:30:00Z')),{date:'2027-01-31',minute:1410});const s=state();s.availability=[{day:1,start:'09:00',end:'09:30'},{day:1,start:'09:30',end:'10:00'}];assert.ok(withinAvailability(s,'2027-02-01','09:10','09:50'));});
+test('locked historical sessions remain in the plan and are not counted as future work',()=>{const p=parse(sample()).draft;const locked=p.sessions.find(s=>s.locked);const result=generate(p,new Date('2027-02-02T12:00:00Z'));assert.ok(result.sessions.some(s=>s.id===locked.id));});
+test('timegrid bands have correct rest and midnight boundaries',()=>{const p=parse(sample()).draft;const bands=scheduleBands(p,'2027-02-01');assert.ok(bands.rest.some(([a,b])=>b-a===10));const view={mode:'day',date:'2027-02-01'};assert.equal(calendarDays(view).length,1);assert.ok(gridEvents(p,view).some(e=>e.end==='2027-02-02T00:00'));navigateCalendar(view,1);assert.equal(view.date,'2027-02-02');});

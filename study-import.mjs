@@ -1,11 +1,12 @@
 import {generate, evaluationKinds, mins, dayKey, minRequired, phases} from './planner.mjs';
+import {validDate,afterNow,weekday,withinAvailability} from './schedule-time.mjs';
 
 const days=['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
 const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
 const fail=m=>{throw new Error(m)};
 const string=(v,label,max=160)=>typeof v==='string'&&v.trim()&&v.length<=max?v.trim():fail(`${label}: texto inválido`);
 const integer=(v,label,min,max)=>Number.isInteger(v)&&v>=min&&v<=max?v:fail(`${label}: número inválido (${min}–${max})`);
-const date=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&dayKey(new Date(v+'T12:00'))===v?v:fail('Fecha inválida (AAAA-MM-DD)');
+const date=v=>validDate(v)?v:fail('Fecha inválida (AAAA-MM-DD)');
 const time=(v,allowEnd=false)=>typeof v==='string'&&(/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v)||(allowEnd&&v==='24:00'))?v:fail('Hora inválida (HH:MM)');
 const interval=(start,end)=>{start=time(start);end=time(end,true);if(mins(start)%5||mins(end)%5||start>=end)fail('Usá intervalos crecientes en múltiplos de cinco minutos');return {start,end};};
 const list=(v,label)=>v===undefined?[]:Array.isArray(v)&&v.length<=200?v:fail(`${label}: se espera una lista de hasta 200 elementos`);
@@ -16,14 +17,15 @@ const overlaps=(start,end,otherStart,otherEnd,gap=0)=>mins(start)<mins(otherEnd)
 export function validatePlacement(state,s,now=new Date()){
  const e=state.exams.find(e=>e.id===s.exam), d=date(s.date), {start,end}=interval(s.start,s.end), duration=mins(end)-mins(start);
  if(s.done)fail('La sesión ya fue completada');
- if(!e||e.closed||new Date(d+'T'+start)<=now||d>e.date||(d===e.date&&mins(end)>mins(e.time)))fail('La sesión debe estar en el futuro y antes de su evaluación');
+ if(!e||e.closed||!afterNow(d,start,now)||d>e.date||(d===e.date&&mins(end)>mins(e.time)))fail('La sesión debe estar en el futuro y antes de su evaluación');
  if(duration<5||duration>state.settings.block)fail('La duración supera el bloque de estudio permitido');
- const day=new Date(d+'T12:00').getDay();
- if(!state.availability.some(a=>a.day===day&&a.start<=start&&a.end>=end))fail('Fuera de tu disponibilidad');
+ const day=weekday(d);
+ if(!withinAvailability(state,d,start,end))fail('Fuera de tu disponibilidad');
  if(state.busy.some(b=>(b.date===d||(!b.date&&b.day===day))&&overlaps(start,end,b.start,b.end)))fail('Coincide con un compromiso');
  if(state.exams.some(e=>!e.closed&&e.date===d&&mins(start)<mins(e.time)+(e.duration||120)&&mins(end)>mins(e.time)))fail('Coincide con una evaluación');
  const fixed=state.sessions.filter(t=>t.id!==s.id&&t.date===d&&(t.locked||t.done));
- if(fixed.some(t=>overlaps(start,end,t.start,t.end,state.settings.break)))fail('Coincide con una sesión fijada o completada, o con su descanso');
+ const conflict=fixed.find(t=>overlaps(start,end,t.start,t.end,state.settings.break));
+ if(conflict){const gap=Math.max(mins(start)-mins(conflict.end),mins(conflict.start)-mins(end)),missing=Math.max(0,state.settings.break-Math.max(0,gap));const name=state.topics.find(t=>t.id===conflict.topic)?.name||'Sesión';fail(`${d} ${start}–${end}: coincide con una sesión fijada o completada (${name}, ${conflict.start}–${conflict.end})${gap>=0&&missing?`; faltan ${missing} min de descanso`:''}`);}
  if(fixed.reduce((n,t)=>n+t.minutes,0)+duration>state.settings.daily)fail('Supera el límite diario de estudio');
  return {...s,date:d,start,end,minutes:duration,locked:true};
 }
@@ -74,7 +76,7 @@ export function parseStudyPlan(raw,state,newId,now=new Date()){
  for(const a of list(x.disponibilidad,'Disponibilidad')){obj(a,['dia','desde','hasta'],'Disponibilidad');const day=dow(a.dia),r=interval(a.desde,a.hasta);add('availability',{day,...r},['day','start','end'],'disponibilidad',`Disponible · ${a.dia} ${r.start}–${r.end}`);}
  for(const b of list(x.compromisos,'Compromisos')){obj(b,['nombre','dia','fecha','desde','hasta','tipo','materia'],'Compromiso');if(Boolean(b.dia)===Boolean(b.fecha))fail('Cada compromiso requiere día semanal o fecha');const name=string(b.nombre,'Compromiso'),kind=b.tipo??'compromiso';if(!['clase','compromiso'].includes(kind))fail('Tipo de compromiso: clase o compromiso');const dateValue=b.fecha?date(b.fecha):undefined,day=b.dia?dow(b.dia):null;if(dateValue&&dateValue<dayKey(now))fail('Compromiso con fecha pasada');const r=interval(b.desde,b.hasta),s=b.materia?subject(b.materia):null;add('busy',{name,...r,day,...(dateValue?{date:dateValue}:{}),kind,...(s?{subject:s.id}:{})},['name','date','day','start','end'],'compromisos',`${kind} · ${name} ${r.start}–${r.end}`);}
  const pending=[];let topicCount=0;
- if(list(x.evaluaciones,'Evaluaciones').length>50)fail('Máximo 50 evaluaciones por importación');for(const v of list(x.evaluaciones,'Evaluaciones')){obj(v,['materia','tipo','fecha','hora','duracion','minimo','temas'],'Evaluación');const s=subject(v.materia),kind=string(v.tipo,'Tipo'),d=date(v.fecha),t=time(v.hora);if(!evaluationKinds.includes(kind))fail('Tipo de evaluación inválido');if(new Date(d+'T'+t)<=now)fail('La evaluación debe ser futura');const duration=integer(v.duracion??120,'Duración',5,360),minimum=integer(v.minimo??minRequired(kind),'Mínimo',minRequired(kind),100);if(mins(t)+duration>1440)fail('La evaluación debe finalizar el mismo día');
+ if(list(x.evaluaciones,'Evaluaciones').length>50)fail('Máximo 50 evaluaciones por importación');for(const v of list(x.evaluaciones,'Evaluaciones')){obj(v,['materia','tipo','fecha','hora','duracion','minimo','temas'],'Evaluación');const s=subject(v.materia),kind=string(v.tipo,'Tipo'),d=date(v.fecha),t=time(v.hora);if(!evaluationKinds.includes(kind))fail('Tipo de evaluación inválido');if(!afterNow(d,t,now))fail('La evaluación debe ser futura');const duration=integer(v.duracion??120,'Duración',5,360),minimum=integer(v.minimo??minRequired(kind),'Mínimo',minRequired(kind),100);if(mins(t)+duration>1440)fail('La evaluación debe finalizar el mismo día');
  const e=add('exams',{subject:s.id,kind,date:d,time:t,duration,minimum,closed:false},['subject','kind','date','time'],'evaluaciones',`${kind} · ${s.name} · ${d} ${t}`);if(e.closed)fail('La evaluación ya está cerrada');
  for(const th of list(v.temas,'Temas')){if(++topicCount>200)fail('Máximo 200 temas por importación');obj(th,['nombre','minutos','dificultad','sesiones'],'Tema');const name=string(th.nombre,'Tema'),estimate=integer(th.minutos,'Minutos',5,3000),difficulty=integer(th.dificultad??3,'Dificultad',1,5);const tp=add('topics',{exam:e.id,name,estimate,difficulty},['exam','name'],'temas',`Tema · ${s.name} / ${name}`);
  for(const ss of list(th.sesiones,'Sesiones')){obj(ss,['fecha','desde','hasta','fase'],'Sesión');const phase=ss.fase??'Aprender';if(!phases.includes(phase))fail('Fase inválida');const r=interval(ss.desde,ss.hasta);pending.push({exam:e.id,topic:tp.id,date:date(ss.fecha),...r,phase,done:false,locked:true,label:`${s.name} · ${name}`});}}
@@ -82,7 +84,7 @@ export function parseStudyPlan(raw,state,newId,now=new Date()){
  if(pending.length>200)fail('Máximo 200 sesiones por importación');
  for(const {label,...s} of pending){const existing=draft.sessions.find(t=>same(t,s,['exam','topic','date','start','end']));if(existing?.locked||existing?.done)continue;const row=validatePlacement(draft,{...s,id:existing?.id??newId()},now);if(existing)draft.sessions=draft.sessions.filter(t=>t.id!==existing.id);draft.sessions.push({...row,id:existing?newId():row.id});counts.sesiones++;preview.push(`Sesión fijada · ${label} · ${s.date} ${s.start}–${s.end}`);}
  // A new commitment or evaluation must not introduce conflicts for any preserved session.
- for(const s of state.sessions.filter(s=>s.locked&&!s.done&&new Date(s.date+'T'+s.start)>now)){
+ for(const s of state.sessions.filter(s=>s.locked&&!s.done&&afterNow(s.date,s.start,now))){
   let wasValid=true;try{validatePlacement(state,s,now)}catch{wasValid=false;}
   if(wasValid)try{validatePlacement(draft,s,now)}catch{fail('El nuevo plan entra en conflicto con sesiones ya fijadas');}
  }

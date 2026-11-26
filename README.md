@@ -60,6 +60,8 @@ Identidad visual: el tema violeta y el icono original de Mis Estudios son perman
 
 Cada materia tiene una identidad de color estable (Comunicación de Datos: violeta; Economía: amarillo), visible en tarjetas, temario y calendario. El tipo de actividad se indica por separado. Las evaluaciones pueden editarse para corregir materia y tipo, incluido Complementario por equivalencia, conservando el mismo ID y las referencias de sus temas, sesiones y resultados.
 
+Calendario horario: Día y Semana utilizan FullCalendar Standard 7.1.5 distribuido localmente (MIT). El eje corresponde a Córdoba; las sesiones, descansos y horarios no disponibles se proyectan desde los mismos datos del plan. En la grilla se puede seleccionar una franja para crear disponibilidad, compromiso, clase o sesión, y mover/redimensionar sesiones automáticas; las fijadas requieren editar explícitamente. Mes y Agenda conservan sus vistas originales. La distribución está incluida en el precache de la PWA.
+
 Pruebas de regresión: `node --test tests/study.test.mjs`. Para una prueba manual, usar un perfil de navegador local y un plan de ejemplo, sin modificar el espacio de una cuenta real.
 
 ## Mejora pendiente
