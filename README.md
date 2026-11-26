@@ -54,6 +54,8 @@ Las sesiones propuestas se fijan tras comprobar disponibilidad, evaluaciones, co
 
 La sincronización con Supabase sigue usando el esquema y la revisión originales. La importación de planes es independiente del respaldo completo de Configuración.
 
+Identidad visual: el tema violeta y el icono original de Mis Estudios son permanentes. Las mejoras de interfaz deben conservarlos, incluso cuando se adapten patrones visuales de Correlativas.
+
 Pruebas de regresión: `node --test tests/study.test.mjs`. Para una prueba manual, usar un perfil de navegador local y un plan de ejemplo, sin modificar el espacio de una cuenta real.
 
 ## Mejora pendiente
