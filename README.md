@@ -58,6 +58,8 @@ La sincronización con Supabase sigue usando el esquema y la revisión originale
 
 Identidad visual: el tema violeta y el icono original de Mis Estudios son permanentes. Las mejoras de interfaz deben conservarlos, incluso cuando se adapten patrones visuales de Correlativas.
 
+Cada materia tiene una identidad de color estable (Comunicación de Datos: violeta; Economía: amarillo), visible en tarjetas, temario y calendario. El tipo de actividad se indica por separado. Las evaluaciones pueden editarse para corregir materia y tipo, incluido Complementario por equivalencia, conservando el mismo ID y las referencias de sus temas, sesiones y resultados.
+
 Pruebas de regresión: `node --test tests/study.test.mjs`. Para una prueba manual, usar un perfil de navegador local y un plan de ejemplo, sin modificar el espacio de una cuenta real.
 
 ## Mejora pendiente

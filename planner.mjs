@@ -2,8 +2,10 @@ export const mins=t=>Number(t.split(':')[0])*60+Number(t.split(':')[1]);
 export const clock=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
 export const dayKey=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
 export const plusDays=(d,n)=>{const x=new Date(d+'T12:00');x.setDate(x.getDate()+n);return dayKey(x)};
-export const grade=(p,kind)=>p>=96?10:p>=87?9:p>=78?8:p>=69?7:p>=60?6:kind==='Final'?'Insuficiente':p>=58?5:p>=55?4:'Insuficiente';
-export const minRequired=kind=>kind==='Final'?60:55;
+export const evaluationKinds=['Parcial','Recuperatorio','Final','Promoción','Complementario por equivalencia'];
+const finalLike=kind=>kind==='Final'||kind==='Complementario por equivalencia';
+export const grade=(p,kind)=>p>=96?10:p>=87?9:p>=78?8:p>=69?7:p>=60?6:finalLike(kind)?'Insuficiente':p>=58?5:p>=55?4:'Insuficiente';
+export const minRequired=kind=>finalLike(kind)?60:55;
 export const phases=['Aprender','Practicar','Dominar','Repasar'];
 export function generate(state,now=new Date()){
  const today=dayKey(now),settings=state.settings;

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseStudyPlan,validatePlacement,makePrompt,validateBackup} from '../study-import.mjs';
 import {calendarDays,eventsOn,navigateCalendar,renderCalendar} from '../calendar.mjs';
-import {subjectIcon} from '../subject-icons.mjs';
+import {subjectIcon,subjectTone} from '../subject-icons.mjs';
 
 const now=new Date('2027-02-01T07:00:00');
 const state=()=>({version:1,subjects:[],exams:[],topics:[],sessions:[],results:[],availability:[],busy:[],settings:{block:50,break:10,daily:120},theme:'auto'});
@@ -20,3 +20,5 @@ test('new commitments cannot conflict with preserved locked sessions',()=>{const
 test('calendar aligns Monday and navigates across year boundaries',()=>{const v={mode:'month',date:'2027-01-20',group:'day',open:new Set()};let ds=calendarDays(v);assert.equal(ds[0],'2026-12-28');assert.equal(ds.at(-1),'2027-01-31');navigateCalendar(v,-1);assert.equal(v.date,'2026-12-01');v.mode='week';assert.equal(calendarDays(v)[0],'2026-11-30');});
 test('calendar encodes names and icons use controlled SVG',()=>{const {draft}=parse(sample());draft.subjects[0].name='Física <em>II</em>';const html=renderCalendar(draft,{mode:'week',date:'2027-02-01',group:'day',open:new Set()});assert.ok(html.includes('Física &lt;em&gt;II&lt;/em&gt;'));assert.ok(!html.includes('<em>II</em>'));assert.notEqual(subjectIcon({corrId:'1'}),subjectIcon({corrId:'2'}));assert.ok(makePrompt(draft).includes('Formato'));});
 test('backup validates historical data shape and rejects invalid numeric fields',()=>{const {draft}=parse(sample());assert.ok(validateBackup(draft));draft.exams[0].minimum='incompatible';assert.equal(validateBackup(draft),false);});
+test('subject colors are stable across names and canonical IDs',()=>{assert.equal(subjectTone({name:'Comunicación de Datos'}),'violet');assert.equal(subjectTone({corrId:'21'}),'violet');assert.equal(subjectTone({name:'Comunicaciones'}),'violet');assert.equal(subjectTone({name:'Economía'}),'yellow');assert.equal(subjectTone({corrId:'18'}),'yellow');assert.equal(subjectTone({name:'Proyecto de Inversión'}),'yellow');assert.notEqual(subjectTone({name:'Física II'}),'violet');assert.equal(subjectTone({name:'Materia nueva'}),subjectTone({name:'MATERIA NUEVA'}));});
+test('equivalence exam is accepted by planned import and backup',()=>{const x=sample();x.evaluaciones[0].materia='Economía';x.evaluaciones[0].tipo='Complementario por equivalencia';const p=parse(x);assert.equal(p.draft.exams[0].kind,'Complementario por equivalencia');assert.equal(p.draft.exams[0].minimum,60);assert.ok(validateBackup(p.draft));assert.match(renderCalendar(p.draft,{mode:'week',date:'2027-02-01',group:'day',open:new Set()}),/data-subject-tone="yellow"/);});

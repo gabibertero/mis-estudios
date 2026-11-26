@@ -23,11 +23,23 @@ const shapes = [
 const normalize = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const keywords = ['analisis matematico i','algebra','fisica i','ingles i','logica','algoritmo','arquitectura','proceso de negocios','analisis matematico ii','fisica ii','sociedad','ingles ii','sintaxis','paradigma','sistemas operativos','analisis de sistemas','probabilidad','economia','base de datos','desarrollo de software','comunicacion','numerico','diseno de sistemas','legislacion','calidad de software','redes','investigacion operativa','simulacion','automatizacion','administracion de sistemas','inteligencia artificial','ciencia de datos','sistemas de gestion','gestion gerencial','seguridad','proyecto final'];
 const fallback='M4 5h7a3 3 0 0 1 3 3v13a4 4 0 0 0-4-3H4Zm10 3a3 3 0 0 1 3-3h3v13h-3a4 4 0 0 0-3 3';
-export function subjectIcon(subject={}) {
+const palette=['blue','teal','coral','indigo','emerald','pink','cyan','orange','slate','rose','lime','navy'];
+function subjectIndex(subject={}){
  const n=Number(subject.corrId), name=normalize(subject.name);
+ if(n===21||name==='com'||/\bcomunicaci(?:on|ones)\b/.test(name))return 20;
+ if(n===18||/\beconomia\b|\bproyecto de inversion\b/.test(name))return 17;
  const match=keywords.map((k,i)=>({k,i})).sort((a,b)=>b.k.length-a.k.length).find(({k})=>name.includes(k));
- const i=Number.isInteger(n)&&n>=1&&n<=shapes.length?n-1:match?.i;
- return `<span class="subject-icon" data-tone="${(i??0)%6}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="${shapes[i]??fallback}"/></svg></span>`;
+ return Number.isInteger(n)&&n>=1&&n<=shapes.length?n-1:match?.i;
+}
+export function subjectTone(subject={}){
+ const i=subjectIndex(subject);if(i===20)return 'violet';if(i===17)return 'yellow';
+ if(i!==undefined)return palette[i%palette.length];
+ const key=normalize(subject.corrId??subject.name);let hash=0;for(const char of key)hash=(Math.imul(hash,31)+char.codePointAt(0))>>>0;
+ return palette[hash%palette.length];
+}
+export function subjectIcon(subject={}) {
+ const i=subjectIndex(subject);
+ return `<span class="subject-icon" data-subject-tone="${subjectTone(subject)}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="${shapes[i]??fallback}"/></svg></span>`;
 }
 const navPaths=['M3 10 12 3l9 7v11H3zM9 21v-8h6v8','M4 5h16v16H4zM4 10h16M8 3v4M16 3v4','M4 4h7v16H4zM13 4h7v16h-7z','M6 3h12v18H6zM9 9l2 2 4-4M9 15h6','M4 4h16v16H4zM8 8h8M8 12h5M8 16h8','M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM12 7v5l3 2','M4 20V4M4 20h16M8 16v-4m4 4V7m4 9v-6','M12 3v3m0 12v3M3 12h3m12 0h3M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z'];
 export const navIcon=i=>`<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="${navPaths[i]}"/></svg>`;
